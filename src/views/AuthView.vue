@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { postApiAuthLogin, postApiAuthRegister } from '@/api/auth'
+import type { LoginRequest, RegisterRequest } from '@/model'
+import { setAccessToken } from '@/utils/request'
 
 type Mode = 'login' | 'register'
 
 const mode = ref<Mode>('login')
 const feedback = ref('')
 const feedbackType = ref<'success' | 'error'>('success')
+const submitting = ref(false)
 
 const loginForm = reactive({
   account: '',
@@ -30,16 +34,58 @@ function switchMode(nextMode: Mode) {
   feedback.value = ''
 }
 
-function submitLogin() {
+// 兼容后端常见返回规范：code 缺省/0/2xx 都视为业务成功。
+function isBusinessSuccess(code?: number) {
+  return code === undefined || code === 0 || (code >= 200 && code < 300)
+}
+
+async function submitLogin() {
+  if (submitting.value) {
+    return
+  }
+
   if (!loginForm.account.trim() || !loginForm.password) {
     showMessage('error', '请输入账号和密码。')
     return
   }
 
-  showMessage('success', loginForm.remember ? '登录成功，已选择记住密码。' : '登录成功。')
+  const payload: LoginRequest = {
+    account: loginForm.account.trim(),
+    password: loginForm.password,
+  }
+
+  submitting.value = true
+  feedback.value = ''
+
+  try {
+    const result = await postApiAuthLogin(payload)
+
+    if (!isBusinessSuccess(result.code)) {
+      showMessage('error', result.message ?? '登录失败，请检查账号和密码。')
+      return
+    }
+
+    // 登录成功后缓存 token，后续请求会在 axios 请求拦截器里自动带上。
+    const token = result.data?.tokenInfo?.tokenValue
+    if (token) {
+      setAccessToken(token)
+    }
+
+    showMessage('success', loginForm.remember ? '登录成功，已选择记住密码。' : '登录成功。')
+  } catch {
+    if (!feedback.value) {
+      showMessage('error', '登录失败，请稍后重试。')
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 
-function submitRegister() {
+async function submitRegister() {
+  if (submitting.value) {
+    return
+  }
+
   if (
     !registerForm.username.trim() ||
     !registerForm.email.trim() ||
@@ -55,17 +101,44 @@ function submitRegister() {
     return
   }
 
-  loginForm.account = registerForm.username.trim() || registerForm.email.trim()
-  loginForm.password = ''
-  loginForm.remember = false
+  const payload: RegisterRequest = {
+    username: registerForm.username.trim(),
+    email: registerForm.email.trim(),
+    password: registerForm.password,
+    confirmPassword: registerForm.confirmPassword,
+  }
 
-  registerForm.username = ''
-  registerForm.email = ''
-  registerForm.password = ''
-  registerForm.confirmPassword = ''
+  submitting.value = true
+  feedback.value = ''
 
-  mode.value = 'login'
-  showMessage('success', '注册成功，请使用账号和密码登录。')
+  try {
+    const result = await postApiAuthRegister(payload)
+
+    if (!isBusinessSuccess(result.code)) {
+      showMessage('error', result.message ?? '注册失败，请稍后重试。')
+      return
+    }
+
+    // 注册成功后将账号预填到登录表单，降低下一步登录输入成本。
+    loginForm.account = payload.username || payload.email || ''
+    loginForm.password = ''
+    loginForm.remember = false
+
+    // 清空注册表单，避免回切注册页时残留敏感信息。
+    registerForm.username = ''
+    registerForm.email = ''
+    registerForm.password = ''
+    registerForm.confirmPassword = ''
+
+    mode.value = 'login'
+    showMessage('success', result.message ?? '注册成功，请使用账号和密码登录。')
+  } catch {
+    if (!feedback.value) {
+      showMessage('error', '注册失败，请稍后重试。')
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -74,8 +147,13 @@ function submitRegister() {
     <section class="auth-card">
       <h1 class="brand">FluxChat</h1>
       <Transition name="form-slide" mode="out-in">
-        <form v-if="mode === 'login'" key="login" @submit.prevent="submitLogin">
-          <ElForm :model="loginForm" label-position="top" class="auth-form">
+        <div v-if="mode === 'login'" key="login">
+          <ElForm
+            :model="loginForm"
+            label-position="top"
+            class="auth-form"
+            @submit.prevent="submitLogin"
+          >
             <h2>登录</h2>
             <ElFormItem label="账号（用户名或邮箱）" required>
               <ElInput
@@ -83,6 +161,7 @@ function submitRegister() {
                 placeholder="请输入用户名或邮箱"
                 autocomplete="username"
                 clearable
+                :disabled="submitting"
               />
             </ElFormItem>
             <ElFormItem label="密码" required>
@@ -92,25 +171,45 @@ function submitRegister() {
                 placeholder="请输入密码"
                 autocomplete="current-password"
                 show-password
+                :disabled="submitting"
               />
             </ElFormItem>
             <ElFormItem class="remember-item">
-              <ElCheckbox v-model="loginForm.remember">记住密码</ElCheckbox>
+              <ElCheckbox v-model="loginForm.remember" :disabled="submitting">记住密码</ElCheckbox>
             </ElFormItem>
             <ElFormItem class="submit-item">
-              <ElButton type="primary" class="submit-btn" native-type="submit">登录</ElButton>
+              <ElButton
+                type="primary"
+                class="submit-btn"
+                native-type="submit"
+                :loading="submitting"
+                :disabled="submitting"
+              >
+                登录
+              </ElButton>
             </ElFormItem>
           </ElForm>
           <p class="switch-row">
             还没有账号？
-            <ElButton type="primary" link class="switch-btn" @click="switchMode('register')">
+            <ElButton
+              type="primary"
+              link
+              class="switch-btn"
+              :disabled="submitting"
+              @click="switchMode('register')"
+            >
               去注册
             </ElButton>
           </p>
-        </form>
+        </div>
 
-        <form v-else key="register" @submit.prevent="submitRegister">
-          <ElForm :model="registerForm" label-position="top" class="auth-form">
+        <div v-else key="register">
+          <ElForm
+            :model="registerForm"
+            label-position="top"
+            class="auth-form"
+            @submit.prevent="submitRegister"
+          >
             <h2>注册</h2>
             <ElFormItem label="用户名" required>
               <ElInput
@@ -118,6 +217,7 @@ function submitRegister() {
                 placeholder="请输入用户名"
                 autocomplete="username"
                 clearable
+                :disabled="submitting"
               />
             </ElFormItem>
             <ElFormItem label="邮箱" required>
@@ -127,6 +227,7 @@ function submitRegister() {
                 placeholder="请输入邮箱"
                 autocomplete="email"
                 clearable
+                :disabled="submitting"
               />
             </ElFormItem>
             <ElFormItem label="密码" required>
@@ -136,6 +237,7 @@ function submitRegister() {
                 placeholder="请输入密码"
                 autocomplete="new-password"
                 show-password
+                :disabled="submitting"
               />
             </ElFormItem>
             <ElFormItem label="重复密码" required>
@@ -145,19 +247,34 @@ function submitRegister() {
                 placeholder="请再次输入密码"
                 autocomplete="new-password"
                 show-password
+                :disabled="submitting"
               />
             </ElFormItem>
             <ElFormItem class="submit-item">
-              <ElButton type="primary" class="submit-btn" native-type="submit">注册</ElButton>
+              <ElButton
+                type="primary"
+                class="submit-btn"
+                native-type="submit"
+                :loading="submitting"
+                :disabled="submitting"
+              >
+                注册
+              </ElButton>
             </ElFormItem>
           </ElForm>
           <p class="switch-row">
             已有账号？
-            <ElButton type="primary" link class="switch-btn" @click="switchMode('login')">
+            <ElButton
+              type="primary"
+              link
+              class="switch-btn"
+              :disabled="submitting"
+              @click="switchMode('login')"
+            >
               去登录
             </ElButton>
           </p>
-        </form>
+        </div>
       </Transition>
 
       <ElAlert
