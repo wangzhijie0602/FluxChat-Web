@@ -23,7 +23,6 @@
     "vue-router": "^5.0.3"
   },
   "devDependencies": {
-    "@faker-js/faker": "^10.3.0",
     "@tsconfig/node24": "^24.0.4",
     "@types/node": "^24.11.0",
     "@vitejs/plugin-vue": "^6.0.4",
@@ -34,7 +33,6 @@
     "eslint-plugin-oxlint": "~1.50.0",
     "eslint-plugin-vue": "~10.8.0",
     "jiti": "^2.6.1",
-    "msw": "^2.12.10",
     "npm-run-all2": "^8.0.4",
     "orval": "^8.5.3",
     "oxlint": "~1.50.0",

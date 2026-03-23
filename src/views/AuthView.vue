@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { postApiAuthLogin, postApiAuthRegister } from '@/api/auth'
-import type { LoginRequest, RegisterRequest } from '@/model'
+import { login, register } from '@/api/generated/auth-controller/auth-controller'
+import type { LoginRequest, LoginResponse, RegisterRequest } from '@/api/generated/model'
 import { setAccessToken } from '@/utils/request'
 
 type Mode = 'login' | 'register'
+
+// 统一描述后端业务响应结构，兼容登录和注册接口的返回读取。
+interface ApiResult<T = unknown> {
+  code?: number
+  message?: string
+  data?: T
+  timestamp?: number
+}
 
 const mode = ref<Mode>('login')
 const feedback = ref('')
@@ -39,6 +47,28 @@ function isBusinessSuccess(code?: number) {
   return code === undefined || code === 0 || (code >= 200 && code < 300)
 }
 
+async function parseApiResponse<T>(payload: Blob | ApiResult<T> | string | null | undefined) {
+  if (!payload) {
+    return {} as ApiResult<T>
+  }
+
+  // Orval 当前把接口声明成 Blob 返回，这里做一次兜底解析，页面仍按业务对象消费。
+  if (payload instanceof Blob) {
+    const text = await payload.text()
+    if (!text) {
+      return {} as ApiResult<T>
+    }
+
+    return JSON.parse(text) as ApiResult<T>
+  }
+
+  if (typeof payload === 'string') {
+    return JSON.parse(payload) as ApiResult<T>
+  }
+
+  return payload
+}
+
 async function submitLogin() {
   if (submitting.value) {
     return
@@ -58,7 +88,8 @@ async function submitLogin() {
   feedback.value = ''
 
   try {
-    const result = await postApiAuthLogin(payload)
+    // 登录接口实际承载的是 JSON 业务结果，这里先解析再处理 code/data。
+    const result = await parseApiResponse<LoginResponse>(await login(payload))
 
     if (!isBusinessSuccess(result.code)) {
       showMessage('error', result.message ?? '登录失败，请检查账号和密码。')
@@ -71,7 +102,7 @@ async function submitLogin() {
       setAccessToken(token)
     }
 
-    showMessage('success', loginForm.remember ? '登录成功，已选择记住密码。' : '登录成功。')
+    showMessage('success', '登录成功。')
   } catch {
     if (!feedback.value) {
       showMessage('error', '登录失败，请稍后重试。')
@@ -112,7 +143,8 @@ async function submitRegister() {
   feedback.value = ''
 
   try {
-    const result = await postApiAuthRegister(payload)
+    // 注册接口和登录接口使用同一套业务响应包装。
+    const result = await parseApiResponse(await register(payload))
 
     if (!isBusinessSuccess(result.code)) {
       showMessage('error', result.message ?? '注册失败，请稍后重试。')

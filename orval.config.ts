@@ -1,16 +1,25 @@
 import { defineConfig } from 'orval'
 
+const openApiTarget = process.env.ORVAL_OPENAPI_URL ?? 'http://localhost:8081/v3/api-docs'
+
 export default defineConfig({
-  petstore: {
+  fluxchat: {
+    input: {
+      target: openApiTarget,
+    },
     output: {
       mode: 'tags-split',
-      target: './src/api/petstore.ts',
-      schemas: './src/model',
-      mock: true,
-      client: 'axios',
-    },
-    input: {
-      target: './petstore.json',
+      target: './src/api/generated/index.ts',
+      schemas: './src/api/generated/model',
+      client: 'axios-functions',
+      clean: true,
+      prettier: true,
+      override: {
+        mutator: {
+          path: './src/api/custom-instance.ts',
+          name: 'customInstance',
+        },
+      },
     },
   },
 })
