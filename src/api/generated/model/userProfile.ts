@@ -5,8 +5,12 @@
  * OpenAPI spec version: v0
  */
 
+/** 用户基础资料。 */
 export interface UserProfile {
+  /** 用户 ID。 */
   id?: number
+  /** 用户名。 */
   username?: string
+  /** 邮箱。 */
   email?: string
 }

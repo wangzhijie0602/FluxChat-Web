@@ -5,16 +5,28 @@
  * OpenAPI spec version: v0
  */
 
+/** Sa-Token 登录态信息。字段含义由后端鉴权框架定义。 */
 export interface SaTokenInfo {
+  /** Token 在请求头或参数中的名称。 */
   tokenName?: string
+  /** 真实 Token 值，前端会保存并放入 Authorization 请求头。 */
   tokenValue?: string
+  /** 当前会话是否已登录。 */
   isLogin?: boolean
+  /** 登录用户 ID，后端可能返回字符串或数字。 */
   loginId?: unknown
+  /** 登录类型，例如账号体系或租户体系。 */
   loginType?: string
+  /** Token 总过期时间。 */
   tokenTimeout?: number
+  /** Session 过期时间。 */
   sessionTimeout?: number
+  /** Token Session 过期时间。 */
   tokenSessionTimeout?: number
+  /** Token 活跃超时时间。 */
   tokenActiveTimeout?: number
+  /** 登录设备类型。 */
   loginDeviceType?: string
+  /** 后端附加标记。 */
   tag?: string
 }

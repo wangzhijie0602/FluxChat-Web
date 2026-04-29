@@ -6,9 +6,14 @@
  */
 import type { LoginResponse } from './loginResponse'
 
+/** 包装 LoginResponse 的后端通用响应结构。 */
 export interface ResultLoginResponse {
+  /** 业务状态码。 */
   code?: number
+  /** 业务提示信息。 */
   message?: string
+  /** 登录响应数据。 */
   data?: LoginResponse
+  /** 响应时间戳。 */
   timestamp?: number
 }

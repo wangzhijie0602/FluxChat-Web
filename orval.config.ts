@@ -16,7 +16,7 @@ export default defineConfig({
       prettier: true,
       override: {
         mutator: {
-          path: './src/api/custom-instance.ts',
+          path: './src/http/custom-instance.ts',
           name: 'customInstance',
         },
       },

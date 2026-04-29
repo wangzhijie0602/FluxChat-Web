@@ -5,7 +5,10 @@
  * OpenAPI spec version: v0
  */
 
+/** 登录请求体。 */
 export interface LoginRequest {
+  /** 登录账号，可以是用户名或邮箱，具体取决于后端约定。 */
   account?: string
+  /** 登录密码。 */
   password?: string
 }

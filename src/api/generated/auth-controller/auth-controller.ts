@@ -6,10 +6,12 @@
  */
 import type { LoginRequest, RegisterRequest } from '../model'
 
-import { customInstance } from '../../custom-instance'
+import { customInstance } from '../../../http/custom-instance'
 
+/** 取得 customInstance 的第二个参数类型，用于透传 axios 额外配置。 */
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1]
 
+/** 注册接口：提交账号注册信息。 */
 export const register = (
   registerRequest: RegisterRequest,
   options?: SecondParameter<typeof customInstance<Blob>>,
@@ -25,6 +27,7 @@ export const register = (
     options,
   )
 }
+/** 登录接口：提交账号密码并获取登录响应。 */
 export const login = (
   loginRequest: LoginRequest,
   options?: SecondParameter<typeof customInstance<Blob>>,
@@ -40,5 +43,7 @@ export const login = (
     options,
   )
 }
+/** 注册接口原始返回类型。 */
 export type RegisterResult = NonNullable<Awaited<ReturnType<typeof register>>>
+/** 登录接口原始返回类型。 */
 export type LoginResult = NonNullable<Awaited<ReturnType<typeof login>>>

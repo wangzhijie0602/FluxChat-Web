@@ -7,7 +7,10 @@
 import type { SaTokenInfo } from './saTokenInfo'
 import type { UserProfile } from './userProfile'
 
+/** 登录成功后的响应数据。 */
 export interface LoginResponse {
+  /** 后端鉴权框架返回的 Token 信息。 */
   tokenInfo?: SaTokenInfo
+  /** 当前登录用户的基础资料。 */
   user?: UserProfile
 }

@@ -5,9 +5,14 @@
  * OpenAPI spec version: v0
  */
 
+/** 注册请求体。 */
 export interface RegisterRequest {
+  /** 注册用户名。 */
   username?: string
+  /** 注册邮箱。 */
   email?: string
+  /** 注册密码。 */
   password?: string
+  /** 确认密码，用于前后端校验两次输入是否一致。 */
   confirmPassword?: string
 }

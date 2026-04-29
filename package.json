@@ -13,7 +13,9 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
-    "orval": "orval"
+    "orval": "orval",
+    "api:generate": "orval --config orval.config.ts",
+    "api:watch": "orval --config orval.config.ts --watch"
   },
   "dependencies": {
     "axios": "^1.13.6",

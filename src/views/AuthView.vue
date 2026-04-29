@@ -1,30 +1,36 @@
+<!--
+  登录/注册页面。
+
+  这个单文件组件同时承载两种认证表单：
+  - login：收集账号和密码，调用登录接口并保存 token
+  - register：收集注册信息，注册成功后切回登录表单
+-->
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { login, register } from '@/api/generated/auth-controller/auth-controller'
-import type { LoginRequest, LoginResponse, RegisterRequest } from '@/api/generated/model'
-import { setAccessToken } from '@/utils/request'
+import { isBusinessSuccess, loginApi, registerApi } from '@/api/modules/auth'
+import type { LoginRequest, RegisterRequest } from '@/api/generated/model'
+import { setAccessToken } from '@/http/token'
 
+/** 页面当前展示的表单模式。 */
 type Mode = 'login' | 'register'
 
-// 统一描述后端业务响应结构，兼容登录和注册接口的返回读取。
-interface ApiResult<T = unknown> {
-  code?: number
-  message?: string
-  data?: T
-  timestamp?: number
-}
-
+/** 当前表单模式，默认展示登录。 */
 const mode = ref<Mode>('login')
+/** 页面底部反馈提示文案。 */
 const feedback = ref('')
+/** 反馈提示类型，驱动 Element Plus Alert 的样式。 */
 const feedbackType = ref<'success' | 'error'>('success')
+/** 防止登录/注册请求重复提交。 */
 const submitting = ref(false)
 
+/** 登录表单状态。 */
 const loginForm = reactive({
   account: '',
   password: '',
   remember: false,
 })
 
+/** 注册表单状态。 */
 const registerForm = reactive({
   username: '',
   email: '',
@@ -32,43 +38,19 @@ const registerForm = reactive({
   confirmPassword: '',
 })
 
+/** 统一设置页面反馈提示。 */
 function showMessage(type: 'success' | 'error', text: string) {
   feedbackType.value = type
   feedback.value = text
 }
 
+/** 在登录和注册表单之间切换，并清空旧提示。 */
 function switchMode(nextMode: Mode) {
   mode.value = nextMode
   feedback.value = ''
 }
 
-// 兼容后端常见返回规范：code 缺省/0/2xx 都视为业务成功。
-function isBusinessSuccess(code?: number) {
-  return code === undefined || code === 0 || (code >= 200 && code < 300)
-}
-
-async function parseApiResponse<T>(payload: Blob | ApiResult<T> | string | null | undefined) {
-  if (!payload) {
-    return {} as ApiResult<T>
-  }
-
-  // Orval 当前把接口声明成 Blob 返回，这里做一次兜底解析，页面仍按业务对象消费。
-  if (payload instanceof Blob) {
-    const text = await payload.text()
-    if (!text) {
-      return {} as ApiResult<T>
-    }
-
-    return JSON.parse(text) as ApiResult<T>
-  }
-
-  if (typeof payload === 'string') {
-    return JSON.parse(payload) as ApiResult<T>
-  }
-
-  return payload
-}
-
+/** 校验登录表单、调用登录接口，并在成功后保存访问令牌。 */
 async function submitLogin() {
   if (submitting.value) {
     return
@@ -88,15 +70,13 @@ async function submitLogin() {
   feedback.value = ''
 
   try {
-    // 登录接口实际承载的是 JSON 业务结果，这里先解析再处理 code/data。
-    const result = await parseApiResponse<LoginResponse>(await login(payload))
+    const result = await loginApi(payload)
 
     if (!isBusinessSuccess(result.code)) {
       showMessage('error', result.message ?? '登录失败，请检查账号和密码。')
       return
     }
 
-    // 登录成功后缓存 token，后续请求会在 axios 请求拦截器里自动带上。
     const token = result.data?.tokenInfo?.tokenValue
     if (token) {
       setAccessToken(token)
@@ -112,6 +92,7 @@ async function submitLogin() {
   }
 }
 
+/** 校验注册表单、调用注册接口，并在成功后引导用户回到登录表单。 */
 async function submitRegister() {
   if (submitting.value) {
     return
@@ -123,7 +104,7 @@ async function submitRegister() {
     !registerForm.password ||
     !registerForm.confirmPassword
   ) {
-    showMessage('error', '请完整填写用户名、邮箱、密码和重复密码。')
+    showMessage('error', '请完整填写用户名、邮箱、密码和确认密码。')
     return
   }
 
@@ -143,20 +124,17 @@ async function submitRegister() {
   feedback.value = ''
 
   try {
-    // 注册接口和登录接口使用同一套业务响应包装。
-    const result = await parseApiResponse(await register(payload))
+    const result = await registerApi(payload)
 
     if (!isBusinessSuccess(result.code)) {
       showMessage('error', result.message ?? '注册失败，请稍后重试。')
       return
     }
 
-    // 注册成功后将账号预填到登录表单，降低下一步登录输入成本。
     loginForm.account = payload.username || payload.email || ''
     loginForm.password = ''
     loginForm.remember = false
 
-    // 清空注册表单，避免回切注册页时残留敏感信息。
     registerForm.username = ''
     registerForm.email = ''
     registerForm.password = ''
@@ -272,7 +250,7 @@ async function submitRegister() {
                 :disabled="submitting"
               />
             </ElFormItem>
-            <ElFormItem label="重复密码" required>
+            <ElFormItem label="确认密码" required>
               <ElInput
                 v-model="registerForm.confirmPassword"
                 type="password"
@@ -322,6 +300,7 @@ async function submitRegister() {
 </template>
 
 <style scoped>
+/* 页面容器：让认证卡片在视口中居中。 */
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -330,24 +309,26 @@ async function submitRegister() {
   padding: 24px;
 }
 
+/* 认证表单卡片：承载登录和注册两种状态。 */
 .auth-card {
   width: min(420px, 100%);
   border: 1px solid #e7e7e7;
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 28px 24px;
   overflow: hidden;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.06);
   background: #fff;
 }
 
+/* 品牌标题。 */
 .brand {
   margin: 0 0 16px;
   text-align: center;
   font-size: 32px;
   font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
+/* Element Plus 表单的局部布局微调。 */
 .auth-form {
   margin-top: 8px;
 }
@@ -388,6 +369,7 @@ async function submitRegister() {
   margin: 14px 0 0;
 }
 
+/* 登录/注册表单切换时的轻量过渡动画。 */
 .form-slide-enter-active,
 .form-slide-leave-active {
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -402,5 +384,4 @@ async function submitRegister() {
   opacity: 0;
   transform: translateX(-18px);
 }
-
 </style>

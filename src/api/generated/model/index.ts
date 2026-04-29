@@ -5,6 +5,7 @@
  * OpenAPI spec version: v0
  */
 
+/** OpenAPI 生成的接口模型统一出口。 */
 export * from './loginRequest'
 export * from './loginResponse'
 export * from './registerRequest'
